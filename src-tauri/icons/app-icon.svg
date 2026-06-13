@@ -1,0 +1,21 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="background" x1="184" y1="128" x2="840" y2="896" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#102742"/>
+      <stop offset="1" stop-color="#07111F"/>
+    </linearGradient>
+    <linearGradient id="planeMain" x1="256" y1="304" x2="770" y2="742" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3FE8EF"/>
+      <stop offset="1" stop-color="#08A1BE"/>
+    </linearGradient>
+    <linearGradient id="planeFold" x1="464" y1="412" x2="705" y2="728" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFDC65"/>
+      <stop offset="1" stop-color="#FF9F2A"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="112" y="112" width="800" height="800" rx="196" fill="url(#background)"/>
+  <path d="M250 505C235 499 235 478 250 472L743 278C764 270 784 291 775 312L580 782C572 800 546 798 541 779L491 594L306 544L250 505Z" fill="url(#planeMain)"/>
+  <path d="M492 594L775 295L580 782C572 800 546 798 541 779L492 594Z" fill="url(#planeFold)"/>
+  <path d="M306 544L775 295L492 594L306 544Z" fill="#BFF7FB" opacity="0.9"/>
+</svg>
