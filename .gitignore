@@ -1,15 +1,13 @@
-# Logs
-logs
+# Local runtime logs
+/logs/
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+*.err.log
 
-node_modules
-dist
-dist-ssr
+# Rust build output
+/target/
+
+# Local build artifacts
+/dist/
 *.local
 
 # Editor directories and files
@@ -22,12 +20,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
-# Rust
-target/
-
-# Tauri
-src-tauri/target/
 
 # Environment
 .env

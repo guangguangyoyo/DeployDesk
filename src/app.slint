@@ -1,0 +1,1083 @@
+import { Button, ComboBox, LineEdit, ListView, ScrollView, SpinBox, Spinner, TextEdit } from "std-widgets.slint";
+
+export struct ProjectRow {
+    id: string,
+    name: string,
+    local_path: string,
+    server: string,
+    remote_path: string,
+    deploy_mode_label: string,
+    output_dir: string,
+    symlink_name: string,
+    max_releases: int,
+    connection_label: string,
+    connection_tone: string,
+    deploy_label: string,
+    deploy_tone: string,
+    deploy_detail: string,
+    deploy_running: bool,
+}
+
+export struct LogRow {
+    project_name: string,
+    action: string,
+    status: string,
+    details: string,
+    timestamp: string,
+    status_tone: string,
+}
+
+export struct ReleaseRow {
+    name: string,
+    remark: string,
+    status_label: string,
+    status_tone: string,
+    is_current: bool,
+}
+
+export struct ProjectFormData {
+    id: string,
+    name: string,
+    local_path: string,
+    build_command: string,
+    remote_host: string,
+    remote_port: int,
+    username: string,
+    auth_method: string,
+    password_or_key: string,
+    remote_deploy_path: string,
+    build_output_dir: string,
+    symlink_name: string,
+    deploy_mode: string,
+    max_releases: int,
+}
+
+global LayoutMetrics {
+    out property <length> sidebar-width: 232px;
+    out property <length> project-dialog-margin-x: 16px;
+    out property <length> project-dialog-margin-y: 20px;
+    out property <length> history-dialog-margin: 24px;
+    out property <length> dialog-slide-offset: 12px;
+    out property <length> deploy-dialog-width: 560px;
+    out property <length> deploy-dialog-height: 360px;
+    out property <length> confirm-dialog-width: 540px;
+    out property <length> confirm-dialog-height: 252px;
+    out property <length> release-name-column-width: 188px;
+    out property <length> release-status-column-width: 82px;
+    out property <length> release-action-column-width: 72px;
+    out property <float> dialog-animation-step: 0.11;
+}
+
+component ActionButton inherits Rectangle {
+    in property <string> label;
+    in property <string> tone: "secondary";
+    in property <bool> enabled: true;
+    property <color> button-background: !root.enabled ? #eef2f7 : root.tone == "primary" ? #145be2 : root.tone == "danger" ? #ffebeb : #f7f9fc;
+    property <color> button-border-color: !root.enabled ? #dbe1ea : root.tone == "primary" ? #145be2 : root.tone == "danger" ? #f5b4b4 : #dbe1ea;
+    property <color> button-text-color: !root.enabled ? #8a94a6 : root.tone == "primary" ? white : root.tone == "danger" ? #c83939 : #141b25;
+    callback clicked();
+
+    height: 32px;
+    width: 84px;
+    vertical-stretch: 0;
+    horizontal-stretch: 0;
+    border-radius: 4px;
+    border-width: 1px;
+    background: root.button-background;
+    border-color: root.button-border-color;
+
+    TouchArea {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => { root.clicked(); }
+    }
+
+    Text {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+        text: root.label;
+        color: root.button-text-color;
+        font-size: 12px;
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component NavButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked();
+
+    width: 196px;
+    height: 40px;
+    vertical-stretch: 0;
+    border-radius: 4px;
+    border-width: 1px;
+    background: root.selected ? #225ad2 : #162133;
+    border-color: root.selected ? #689dff : #273448;
+
+    TouchArea {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    Text {
+        x: 14px;
+        y: 0px;
+        width: parent.width - 28px;
+        height: parent.height;
+        text: root.label;
+        color: root.selected ? white : #cbd5e1;
+        font-size: 13px;
+        font-weight: 700;
+        horizontal-alignment: left;
+        vertical-alignment: center;
+    }
+}
+
+component StatusPill inherits Rectangle {
+    in property <string> label;
+    in property <string> tone: "muted";
+    property <color> pill-background: root.tone == "success" ? #e2f6ed : root.tone == "danger" ? #ffebeb : root.tone == "warning" ? #fff4d2 : root.tone == "accent" ? #e6eeff : #f7f9fc;
+    property <color> pill-border-color: root.tone == "success" ? #99d8bd : root.tone == "danger" ? #f5b4b4 : root.tone == "warning" ? #efd890 : root.tone == "accent" ? #bfd0ff : #dbe1ea;
+    property <color> pill-text-color: root.tone == "success" ? #12875b : root.tone == "danger" ? #c83939 : root.tone == "warning" ? #a87000 : root.tone == "accent" ? #145be2 : #5e6876;
+
+    width: 92px;
+    height: 24px;
+    vertical-stretch: 0;
+    horizontal-stretch: 0;
+    border-radius: 6px;
+    border-width: 1px;
+    background: root.pill-background;
+    border-color: root.pill-border-color;
+
+    Text {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+        text: root.label;
+        color: root.pill-text-color;
+        font-size: 11px;
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component ModeLabel inherits Text {
+    in property <string> label;
+
+    text: "模式：" + root.label;
+    width: 122px;
+    height: 24px;
+    color: #5e6876;
+    font-size: 12px;
+    font-weight: 700;
+    horizontal-alignment: right;
+    vertical-alignment: center;
+    overflow: elide;
+}
+
+component MetricTile inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+    in property <string> caption;
+
+    min-width: 144px;
+    height: 76px;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: #dbe1ea;
+    background: white;
+
+    VerticalLayout {
+        padding: 10px;
+        spacing: 3px;
+
+        Text { text: root.label; color: #5e6876; font-size: 12px; }
+        Text { text: root.value; color: #141b25; font-size: 20px; font-weight: 800; }
+        Text { text: root.caption; color: #5e6876; font-size: 11px; overflow: elide; }
+    }
+}
+
+component AlertBanner inherits Rectangle {
+    in property <string> message;
+    in property <string> tone;
+    callback close();
+
+    visible: root.message != "";
+    height: root.message == "" ? 0px : 44px;
+    border-radius: 4px;
+    border-width: 1px;
+    background: root.tone == "success" ? #e2f6ed : #ffebeb;
+    border-color: root.tone == "success" ? #12875b : #c83939;
+
+    HorizontalLayout {
+        padding: 8px;
+        spacing: 10px;
+
+        Text {
+            text: root.message;
+            horizontal-stretch: 1;
+            vertical-alignment: center;
+            color: root.tone == "success" ? #12875b : #c83939;
+            font-size: 13px;
+            font-weight: 700;
+            wrap: word-wrap;
+        }
+        ActionButton {
+            label: "关闭";
+            width: 64px;
+            clicked => { root.close(); }
+        }
+    }
+}
+
+component EmptyState inherits Rectangle {
+    in property <string> title;
+    in property <string> detail;
+
+    height: 170px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: #dbe1ea;
+    background: white;
+
+    VerticalLayout {
+        alignment: center;
+        padding: 24px;
+        spacing: 8px;
+
+        Text {
+            text: root.title;
+            color: #141b25;
+            font-size: 20px;
+            font-weight: 800;
+            horizontal-alignment: center;
+        }
+        Text {
+            text: root.detail;
+            color: #5e6876;
+            font-size: 13px;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+    }
+}
+
+component DetailTile inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+
+    height: 38px;
+    horizontal-stretch: 1;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: #dbe1ea;
+    background: #f7f9fc;
+
+    VerticalLayout {
+        padding: 5px;
+        spacing: 1px;
+        Text { text: root.label; color: #5e6876; font-size: 10px; }
+        Text { text: root.value; color: #141b25; font-size: 12px; font-family: "Consolas"; overflow: elide; }
+    }
+}
+
+component FieldLabel inherits Text {
+    in property <string> label;
+    text: root.label;
+    height: 16px;
+    vertical-stretch: 0;
+    color: #5e6876;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+component ProjectCard inherits Rectangle {
+    in property <ProjectRow> project_data;
+    callback edit(string);
+    callback delete(string);
+    callback check(string);
+    callback deploy(string);
+    callback history(string);
+
+    height: 142px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: #dbe1ea;
+    background: white;
+
+    VerticalLayout {
+        padding: 10px;
+        spacing: 6px;
+
+        HorizontalLayout {
+            height: 34px;
+            spacing: 8px;
+
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: 2px;
+                Text { text: root.project_data.name; color: #141b25; font-size: 16px; font-weight: 800; overflow: elide; }
+                Text { text: root.project_data.local_path; color: #5e6876; font-size: 11px; overflow: elide; }
+            }
+
+            ModeLabel { label: root.project_data.deploy_mode_label; }
+            ActionButton { label: "编辑"; width: 72px; clicked => { root.edit(root.project_data.id); } }
+            ActionButton { label: "删除"; tone: "danger"; width: 72px; clicked => { root.delete(root.project_data.id); } }
+        }
+
+        HorizontalLayout {
+            height: 38px;
+            spacing: 6px;
+            DetailTile { label: "服务器"; value: root.project_data.server; }
+            DetailTile { label: "部署路径"; value: root.project_data.remote_path; }
+            DetailTile { label: "产物目录"; value: root.project_data.output_dir; }
+            DetailTile { label: "软链接 / 保留"; value: root.project_data.symlink_name + " · " + root.project_data.max_releases; }
+        }
+
+        HorizontalLayout {
+            height: 32px;
+            spacing: 6px;
+            if root.project_data.deploy_running : Spinner { width: 22px; height: 22px; }
+            StatusPill { label: root.project_data.deploy_label != "" ? root.project_data.deploy_label : root.project_data.connection_label; tone: root.project_data.deploy_label != "" ? root.project_data.deploy_tone : root.project_data.connection_tone; }
+            Text {
+                horizontal-stretch: 1;
+                text: root.project_data.deploy_detail;
+                color: root.project_data.deploy_tone == "danger" ? #c83939 : #5e6876;
+                font-size: 12px;
+                overflow: elide;
+            }
+            ActionButton { label: "检测连接"; width: 92px; clicked => { root.check(root.project_data.id); } }
+            ActionButton { label: "历史"; width: 68px; clicked => { root.history(root.project_data.id); } }
+            ActionButton { label: "发布"; tone: "primary"; width: 80px; enabled: !root.project_data.deploy_running; clicked => { root.deploy(root.project_data.id); } }
+        }
+    }
+}
+
+component LogItem inherits Rectangle {
+    in property <LogRow> log_data;
+
+    height: 62px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: #dbe1ea;
+    background: white;
+
+    HorizontalLayout {
+        padding: 10px;
+        spacing: 12px;
+
+        VerticalLayout {
+            width: 180px;
+            spacing: 3px;
+            Text { text: root.log_data.project_name; color: #141b25; font-size: 13px; font-weight: 700; overflow: elide; }
+            Text { text: root.log_data.timestamp; color: #5e6876; font-size: 11px; font-family: "Consolas"; overflow: elide; }
+        }
+        StatusPill { label: root.log_data.action; tone: "muted"; width: 72px; }
+        StatusPill { label: root.log_data.status; tone: root.log_data.status_tone; width: 72px; }
+        Text { text: root.log_data.details; horizontal-stretch: 1; color: #5e6876; font-size: 12px; wrap: word-wrap; }
+    }
+}
+
+component ReleaseItem inherits Rectangle {
+    in property <ReleaseRow> release_data;
+    callback rollback(string);
+
+    height: 52px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: #dbe1ea;
+    background: white;
+
+    HorizontalLayout {
+        padding: 8px;
+        spacing: 10px;
+
+        Text { text: root.release_data.name; color: #141b25; font-size: 13px; font-family: "Consolas"; width: LayoutMetrics.release-name-column-width; height: 32px; vertical-alignment: center; overflow: elide; }
+        StatusPill { label: root.release_data.status_label; tone: root.release_data.status_tone; width: LayoutMetrics.release-status-column-width; }
+        Text { text: root.release_data.remark == "" ? "无备注" : root.release_data.remark; horizontal-stretch: 1; height: 32px; color: #5e6876; font-size: 12px; vertical-alignment: center; overflow: elide; }
+        ActionButton { label: "回滚"; width: LayoutMetrics.release-action-column-width; enabled: !root.release_data.is_current; clicked => { root.rollback(root.release_data.name); } }
+    }
+}
+
+component ReleaseListHeader inherits Rectangle {
+    height: 30px;
+    border-radius: 4px;
+    background: #f7f9fc;
+
+    HorizontalLayout {
+        padding: 8px;
+        spacing: 10px;
+
+        Text { text: "版本目录"; width: LayoutMetrics.release-name-column-width; color: #5e6876; font-size: 11px; font-weight: 700; vertical-alignment: center; }
+        Text { text: "状态"; width: LayoutMetrics.release-status-column-width; color: #5e6876; font-size: 11px; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+        Text { text: "备注"; horizontal-stretch: 1; color: #5e6876; font-size: 11px; font-weight: 700; vertical-alignment: center; }
+        Text { text: "操作"; width: LayoutMetrics.release-action-column-width; color: #5e6876; font-size: 11px; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+    }
+}
+
+component FormInput inherits Rectangle {
+    in-out property <string> value;
+    in property <string> placeholder;
+    in property <bool> secret: false;
+
+    height: 38px;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: #b8c4d6;
+    background: white;
+
+    if root.secret : LineEdit {
+        x: 1px;
+        y: 1px;
+        width: parent.width - 2px;
+        height: parent.height - 2px;
+        text: root.value;
+        placeholder-text: root.placeholder;
+        input-type: password;
+        edited(value) => { root.value = value; }
+    }
+
+    if !root.secret : LineEdit {
+        x: 1px;
+        y: 1px;
+        width: parent.width - 2px;
+        height: parent.height - 2px;
+        text: root.value;
+        placeholder-text: root.placeholder;
+        edited(value) => { root.value = value; }
+    }
+}
+
+export component MainWindow inherits Window {
+    title: "发布舱";
+    icon: @image-url("assets/app-icon.png");
+    preferred-width: 1180px;
+    preferred-height: 760px;
+    min-width: 1024px;
+    min-height: 680px;
+    background: #f2f5f9;
+
+    in-out property <string> active_page: "projects";
+    in-out property <string> dialog_kind: "none";
+    in property <[ProjectRow]> project_rows;
+    in property <[LogRow]> log_rows;
+    in property <[ReleaseRow]> release_rows;
+    in property <int> release_count;
+    in-out property <ProjectFormData> form_data;
+    in property <string> form_title;
+    in property <string> form_subtitle;
+    in property <string> app_dir;
+    in property <int> project_count;
+    in property <int> online_count;
+    in property <int> active_task_count;
+    in property <int> log_count;
+    in property <int> success_log_count;
+    in property <int> failed_log_count;
+    in property <string> notice_message;
+    in property <string> error_message;
+    in property <string> deploy_project_name;
+    in property <string> deploy_project_path;
+    in-out property <string> deploy_remark;
+    in property <string> history_project_name;
+    in property <string> history_project_path;
+    in property <bool> history_loading;
+    in property <string> history_error;
+    in property <string> history_success;
+    in property <string> confirm_title;
+    in property <string> confirm_detail;
+    in property <string> confirm_hint;
+    property <float> dialog-animation-progress: 1.0;
+
+    callback select_projects();
+    callback select_logs();
+    callback refresh_projects();
+    callback refresh_logs();
+    callback open_new_project();
+    callback open_edit_project(string);
+    callback open_delete_project(string);
+    callback save_project(ProjectFormData);
+    callback choose_local_path();
+    callback choose_key_file();
+    callback check_connection(string);
+    callback open_deploy(string);
+    callback confirm_deploy(string);
+    callback open_history(string);
+    callback refresh_history();
+    callback request_rollback(string);
+    callback confirm_delete();
+    callback confirm_rollback();
+    callback close_dialog();
+    callback dismiss_notice();
+    callback dismiss_error();
+
+    dialog-animation := Timer {
+        interval: 16ms;
+        running: false;
+        triggered => {
+            root.dialog-animation-progress = root.dialog-animation-progress + LayoutMetrics.dialog-animation-step;
+            if root.dialog-animation-progress >= 1.0 {
+                root.dialog-animation-progress = 1.0;
+                self.running = false;
+            }
+        }
+    }
+
+    changed dialog_kind => {
+        if root.dialog_kind != "none" {
+            root.dialog-animation-progress = 0.0;
+            dialog-animation.running = true;
+        } else {
+            root.dialog-animation-progress = 1.0;
+            dialog-animation.running = false;
+        }
+    }
+
+    HorizontalLayout {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+        spacing: 0px;
+
+        Rectangle {
+            width: LayoutMetrics.sidebar-width;
+            height: root.height;
+            background: #121b2a;
+
+            VerticalLayout {
+                padding: 18px;
+                spacing: 12px;
+
+                HorizontalLayout {
+                    height: 50px;
+                    spacing: 10px;
+
+                    Rectangle {
+                        width: 38px;
+                        height: 38px;
+                        border-radius: 6px;
+                        background: #145be2;
+
+                        Text {
+                            x: 0px;
+                            y: 0px;
+                            width: parent.width;
+                            height: parent.height;
+                            text: "舱";
+                            color: white;
+                            font-size: 18px;
+                            font-weight: 800;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    VerticalLayout {
+                        width: 138px;
+                        horizontal-stretch: 1;
+                        spacing: 3px;
+                        Text { text: "发布舱"; color: white; font-size: 20px; font-weight: 800; overflow: elide; }
+                        Text { text: "DeployDesk"; color: #9ca3af; font-size: 11px; overflow: elide; }
+                    }
+                }
+
+                NavButton {
+                    label: "项目管理";
+                    selected: root.active_page == "projects";
+                    clicked => { root.select_projects(); }
+                }
+                NavButton {
+                    label: "操作日志";
+                    selected: root.active_page == "logs";
+                    clicked => { root.select_logs(); }
+                }
+
+                Rectangle { vertical-stretch: 1; }
+
+                Rectangle { height: 1px; background: #273448; }
+
+                Rectangle {
+                    width: 196px;
+                    height: 118px;
+                    border-radius: 6px;
+                    border-width: 1px;
+                    border-color: #273448;
+                    background: #172236;
+
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 5px;
+                        Text { text: "系统就绪"; color: #dbeafe; font-size: 12px; font-weight: 700; overflow: elide; }
+                        Text { text: root.project_count + " 个项目 · " + root.log_count + " 条日志"; color: #cbd5e1; font-size: 11px; overflow: elide; }
+                        Rectangle { height: 1px; background: #273448; }
+                        Text { text: "本地配置目录"; color: #94a3b8; font-size: 11px; overflow: elide; }
+                        Text { text: root.app_dir; color: #cbd5e1; font-size: 11px; overflow: elide; }
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            width: root.width - LayoutMetrics.sidebar-width;
+            height: root.height;
+            horizontal-stretch: 1;
+            background: #f2f5f9;
+
+            VerticalLayout {
+                padding: 24px;
+                spacing: 12px;
+
+                if root.active_page == "projects" : VerticalLayout {
+                    vertical-stretch: 1;
+                    spacing: 12px;
+
+                    HorizontalLayout {
+                        height: 54px;
+                        spacing: 12px;
+
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            spacing: 3px;
+                            Text { text: "项目管理"; color: #141b25; font-size: 26px; font-weight: 800; }
+                            Text { text: "配置发布目标，执行构建上传，查看远程版本并回滚。"; color: #5e6876; font-size: 13px; }
+                        }
+
+                        ActionButton { label: "刷新"; width: 76px; clicked => { root.refresh_projects(); } }
+                        ActionButton { label: "新建项目"; tone: "primary"; width: 96px; clicked => { root.open_new_project(); } }
+                    }
+
+                    HorizontalLayout {
+                        height: 76px;
+                        spacing: 12px;
+                        MetricTile { label: "项目"; value: root.project_count; caption: "已配置发布目标"; }
+                        MetricTile { label: "在线"; value: root.online_count; caption: "连接检测通过"; }
+                        MetricTile { label: "运行中"; value: root.active_task_count; caption: "发布或检测任务"; }
+                        MetricTile { label: "日志"; value: root.log_count; caption: "最近操作记录"; }
+                    }
+
+                    AlertBanner { message: root.notice_message; tone: "success"; close => { root.dismiss_notice(); } }
+                    AlertBanner { message: root.error_message; tone: "danger"; close => { root.dismiss_error(); } }
+
+                    if root.project_count == 0 : EmptyState {
+                        title: "尚未配置任何项目";
+                        detail: "新建一个发布目标后，可以在这里检测连接、发布静态产物和查看历史版本。";
+                    }
+
+                    if root.project_count > 0 : ListView {
+                        vertical-stretch: 1;
+                        for project in root.project_rows : ProjectCard {
+                            width: parent.width;
+                            project_data: project;
+                            edit(id) => { root.open_edit_project(id); }
+                            delete(id) => { root.open_delete_project(id); }
+                            check(id) => { root.check_connection(id); }
+                            deploy(id) => { root.open_deploy(id); }
+                            history(id) => { root.open_history(id); }
+                        }
+                    }
+                }
+
+                if root.active_page == "logs" : VerticalLayout {
+                    vertical-stretch: 1;
+                    spacing: 12px;
+
+                    HorizontalLayout {
+                        height: 54px;
+                        spacing: 12px;
+
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            spacing: 3px;
+                            Text { text: "操作日志"; color: #141b25; font-size: 26px; font-weight: 800; }
+                            Text { text: "最近 100 条发布与回退记录。"; color: #5e6876; font-size: 13px; }
+                        }
+
+                        ActionButton { label: "刷新"; width: 76px; clicked => { root.refresh_logs(); } }
+                    }
+
+                    HorizontalLayout {
+                        height: 92px;
+                        spacing: 12px;
+                        MetricTile { label: "记录"; value: root.log_count; caption: "最近操作"; }
+                        MetricTile { label: "成功"; value: root.success_log_count; caption: "发布或回滚完成"; }
+                        MetricTile { label: "失败"; value: root.failed_log_count; caption: "需要排查的操作"; }
+                    }
+
+                    AlertBanner { message: root.notice_message; tone: "success"; close => { root.dismiss_notice(); } }
+                    AlertBanner { message: root.error_message; tone: "danger"; close => { root.dismiss_error(); } }
+
+                    if root.log_count == 0 : EmptyState {
+                        title: "暂无最近的操作记录";
+                        detail: "发布或回退完成后，记录会显示在这里。";
+                    }
+
+                    if root.log_count > 0 : ListView {
+                        vertical-stretch: 1;
+                        for item in root.log_rows : LogItem {
+                            width: parent.width;
+                            log_data: item;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if root.dialog_kind != "none" : Rectangle {
+        x: LayoutMetrics.sidebar-width;
+        y: 0px;
+        width: root.width - LayoutMetrics.sidebar-width;
+        height: root.height;
+        opacity: root.dialog-animation-progress;
+        background: #0f172a44;
+        TouchArea {
+            x: 0px;
+            y: 0px;
+            width: parent.width;
+            height: parent.height;
+        }
+    }
+
+    if root.dialog_kind == "project" : Rectangle {
+        x: LayoutMetrics.sidebar-width + LayoutMetrics.project-dialog-margin-x;
+        y: LayoutMetrics.project-dialog-margin-y + LayoutMetrics.dialog-slide-offset * (1.0 - root.dialog-animation-progress);
+        width: root.width - LayoutMetrics.sidebar-width - 2 * LayoutMetrics.project-dialog-margin-x;
+        height: root.height - 2 * LayoutMetrics.project-dialog-margin-y;
+        opacity: root.dialog-animation-progress;
+        background: white;
+        border-radius: 6px;
+        border-width: 1px;
+        border-color: #dbe1ea;
+
+        VerticalLayout {
+            padding: 18px;
+            spacing: 14px;
+
+            Rectangle {
+                height: 64px;
+                border-radius: 6px;
+                border-width: 1px;
+                border-color: #d3def4;
+                background: #f7faff;
+
+                HorizontalLayout {
+                    padding: 12px;
+                    spacing: 10px;
+                    Rectangle {
+                        width: 38px;
+                        height: 38px;
+                        border-radius: 4px;
+                        background: #145be2;
+                        Text {
+                            x: 0px;
+                            y: 0px;
+                            width: parent.width;
+                            height: parent.height;
+                            text: "发";
+                            color: white;
+                            font-size: 18px;
+                            font-weight: 800;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                    VerticalLayout {
+                        horizontal-stretch: 1;
+                        spacing: 3px;
+                        Text { text: root.form_title; color: #141b25; font-size: 19px; font-weight: 800; overflow: elide; }
+                        Text { text: root.form_subtitle; color: #5e6876; font-size: 12px; overflow: elide; }
+                    }
+                }
+            }
+
+            ScrollView {
+                vertical-stretch: 1;
+                VerticalLayout {
+                    width: parent.width;
+                    spacing: 12px;
+
+                    Rectangle {
+                        height: 218px;
+                        border-radius: 6px;
+                        border-width: 1px;
+                        border-color: #dbe1ea;
+                        background: white;
+                        VerticalLayout {
+                            padding: 16px;
+                            spacing: 8px;
+                            Text { text: "基础信息"; color: #141b25; font-size: 16px; font-weight: 800; }
+                            Text { text: "用于识别项目和定位本地工作目录。"; color: #5e6876; font-size: 12px; }
+                            FieldLabel { label: "项目名称 *"; }
+                            FormInput { value <=> root.form_data.name; placeholder: "例如：官网前端"; }
+                            FieldLabel { label: "本地项目根目录 *"; }
+                            HorizontalLayout {
+                                height: 38px;
+                                spacing: 8px;
+                                FormInput { value <=> root.form_data.local_path; placeholder: "选择或输入本地路径"; }
+                                ActionButton { label: "选择目录"; width: 96px; clicked => { root.choose_local_path(); } }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        height: root.form_data.deploy_mode == "build" ? 292px : 218px;
+                        border-radius: 6px;
+                        border-width: 1px;
+                        border-color: #dbe1ea;
+                        background: white;
+                        VerticalLayout {
+                            padding: 16px;
+                            spacing: 8px;
+                            Text { text: "发布配置"; color: #141b25; font-size: 16px; font-weight: 800; }
+                            Text { text: "控制本地构建流程和上传的产物目录。"; color: #5e6876; font-size: 12px; }
+                            FieldLabel { label: "发布方式"; }
+                            ComboBox {
+                                height: 38px;
+                                model: ["构建并发布", "直接上传"];
+                                current-value: root.form_data.deploy_mode == "upload" ? "直接上传" : "构建并发布";
+                                selected(value) => { root.form_data.deploy_mode = value == "直接上传" ? "upload" : "build"; }
+                            }
+                            if root.form_data.deploy_mode == "build" : FieldLabel { label: "构建命令"; }
+                            if root.form_data.deploy_mode == "build" : FormInput { value <=> root.form_data.build_command; placeholder: "npm run build"; }
+                            FieldLabel { label: "构建产物目录 / 静态文件目录"; }
+                            FormInput { value <=> root.form_data.build_output_dir; placeholder: "dist"; }
+                        }
+                    }
+
+                    Rectangle {
+                        height: 432px;
+                        border-radius: 6px;
+                        border-width: 1px;
+                        border-color: #dbe1ea;
+                        background: white;
+                        VerticalLayout {
+                            padding: 16px;
+                            spacing: 8px;
+                            Text { text: "服务器与认证"; color: #141b25; font-size: 16px; font-weight: 800; }
+                            Text { text: "配置远程服务器、发布路径和登录凭据。"; color: #5e6876; font-size: 12px; }
+                            HorizontalLayout {
+                                height: 64px;
+                                spacing: 12px;
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    spacing: 4px;
+                                    FieldLabel { label: "远程主机（IP / 域名） *"; }
+                                    FormInput { value <=> root.form_data.remote_host; placeholder: "example.com"; }
+                                }
+                                VerticalLayout {
+                                    width: 160px;
+                                    spacing: 4px;
+                                    FieldLabel { label: "端口"; }
+                                    SpinBox { height: 38px; minimum: 1; maximum: 65535; value: root.form_data.remote_port; edited(value) => { root.form_data.remote_port = value; } }
+                                }
+                            }
+                            HorizontalLayout {
+                                height: 64px;
+                                spacing: 12px;
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    spacing: 4px;
+                                    FieldLabel { label: "用户名"; }
+                                    FormInput { value <=> root.form_data.username; placeholder: "root"; }
+                                }
+                                VerticalLayout {
+                                    width: 180px;
+                                    spacing: 4px;
+                                    FieldLabel { label: "认证方式"; }
+                                    ComboBox {
+                                        height: 38px;
+                                        model: ["密码", "私钥路径"];
+                                        current-value: root.form_data.auth_method == "key" ? "私钥路径" : "密码";
+                                        selected(value) => { root.form_data.auth_method = value == "私钥路径" ? "key" : "password"; }
+                                    }
+                                }
+                            }
+                            FieldLabel { label: root.form_data.auth_method == "key" ? "私钥文件路径" : "密码"; }
+                            HorizontalLayout {
+                                height: 38px;
+                                spacing: 8px;
+                                FormInput { value <=> root.form_data.password_or_key; secret: root.form_data.auth_method != "key"; placeholder: root.form_data.auth_method == "key" ? "选择或输入私钥路径" : "输入密码"; }
+                                ActionButton { label: "选择文件"; width: 96px; enabled: root.form_data.auth_method == "key"; clicked => { root.choose_key_file(); } }
+                            }
+                            FieldLabel { label: "远程部署路径 *"; }
+                            FormInput { value <=> root.form_data.remote_deploy_path; placeholder: "/var/www/html/project"; }
+                            HorizontalLayout {
+                                height: 64px;
+                                spacing: 12px;
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    spacing: 4px;
+                                    FieldLabel { label: "软链接名称"; }
+                                    FormInput { value <=> root.form_data.symlink_name; placeholder: "current"; }
+                                }
+                                VerticalLayout {
+                                    width: 180px;
+                                    spacing: 4px;
+                                    FieldLabel { label: "最大保留版本数"; }
+                                    SpinBox { height: 38px; minimum: 3; maximum: 99; value: root.form_data.max_releases; edited(value) => { root.form_data.max_releases = value; } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                height: 44px;
+                alignment: end;
+                spacing: 8px;
+                ActionButton { label: "取消"; width: 76px; clicked => { root.close_dialog(); } }
+                ActionButton { label: "保存"; tone: "primary"; width: 86px; clicked => { root.save_project(root.form_data); } }
+            }
+        }
+    }
+
+    if root.dialog_kind == "deploy" : Rectangle {
+        x: LayoutMetrics.sidebar-width + (root.width - LayoutMetrics.sidebar-width - LayoutMetrics.deploy-dialog-width) / 2;
+        y: (root.height - LayoutMetrics.deploy-dialog-height) / 2 + LayoutMetrics.dialog-slide-offset * (1.0 - root.dialog-animation-progress);
+        width: LayoutMetrics.deploy-dialog-width;
+        height: LayoutMetrics.deploy-dialog-height;
+        opacity: root.dialog-animation-progress;
+        background: white;
+        border-radius: 6px;
+        border-width: 1px;
+        border-color: #dbe1ea;
+
+        VerticalLayout {
+            padding: 20px;
+            spacing: 10px;
+            Text { text: "发布确认"; color: #141b25; font-size: 21px; font-weight: 800; }
+            Text { text: "确认目标项目与发布备注，任务开始后会在后台执行。"; color: #5e6876; font-size: 12px; }
+            Rectangle {
+                height: 74px;
+                border-radius: 4px;
+                border-width: 1px;
+                border-color: #dbe1ea;
+                background: #f7f9fc;
+                VerticalLayout {
+                    padding: 12px;
+                    spacing: 4px;
+                    Text { text: root.deploy_project_name; color: #141b25; font-size: 16px; font-weight: 800; }
+                    Text { text: root.deploy_project_path; color: #5e6876; font-size: 12px; font-family: "Consolas"; overflow: elide; }
+                }
+            }
+            Text { text: "发布备注（可选）"; color: #5e6876; font-size: 12px; font-weight: 700; }
+            TextEdit { height: 88px; text: root.deploy_remark; edited(value) => { root.deploy_remark = value; } }
+            Rectangle { vertical-stretch: 1; }
+            HorizontalLayout {
+                height: 44px;
+                alignment: end;
+                spacing: 8px;
+                ActionButton { label: "取消"; width: 76px; clicked => { root.close_dialog(); } }
+                ActionButton { label: "确认发布"; tone: "primary"; width: 96px; clicked => { root.confirm_deploy(root.deploy_remark); } }
+            }
+        }
+    }
+
+    if root.dialog_kind == "history" : Rectangle {
+        x: LayoutMetrics.sidebar-width + LayoutMetrics.history-dialog-margin;
+        y: LayoutMetrics.history-dialog-margin + LayoutMetrics.dialog-slide-offset * (1.0 - root.dialog-animation-progress);
+        width: root.width - LayoutMetrics.sidebar-width - 2 * LayoutMetrics.history-dialog-margin;
+        height: root.height - 2 * LayoutMetrics.history-dialog-margin;
+        opacity: root.dialog-animation-progress;
+        background: white;
+        border-radius: 6px;
+        border-width: 1px;
+        border-color: #dbe1ea;
+
+        VerticalLayout {
+            padding: 18px;
+            spacing: 12px;
+
+            HorizontalLayout {
+                height: 54px;
+                spacing: 10px;
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    spacing: 3px;
+                    Text { text: "发布历史 - " + root.history_project_name; color: #141b25; font-size: 21px; font-weight: 800; }
+                    Text { text: root.history_project_path; color: #5e6876; font-size: 12px; font-family: "Consolas"; overflow: elide; }
+                }
+                if root.history_loading : Spinner { width: 28px; height: 28px; }
+                ActionButton { label: "刷新"; width: 76px; clicked => { root.refresh_history(); } }
+                ActionButton { label: "关闭"; width: 76px; clicked => { root.close_dialog(); } }
+            }
+
+            AlertBanner { message: root.history_success; tone: "success"; close => { } }
+            AlertBanner { message: root.history_error; tone: "danger"; close => { } }
+
+            if !root.history_loading && root.release_count == 0 : EmptyState {
+                title: "远程服务器上暂无发布记录";
+                detail: "完成一次发布后，这里会显示可回滚的版本。";
+            }
+
+            if root.history_loading || root.release_count > 0 : ReleaseListHeader {}
+
+            if root.history_loading || root.release_count > 0 : ListView {
+                vertical-stretch: 1;
+                for release in root.release_rows : ReleaseItem {
+                    width: parent.width;
+                    release_data: release;
+                    rollback(name) => { root.request_rollback(name); }
+                }
+            }
+        }
+    }
+
+    if root.dialog_kind == "delete" || root.dialog_kind == "rollback" : Rectangle {
+        x: LayoutMetrics.sidebar-width + (root.width - LayoutMetrics.sidebar-width - LayoutMetrics.confirm-dialog-width) / 2;
+        y: (root.height - LayoutMetrics.confirm-dialog-height) / 2 + LayoutMetrics.dialog-slide-offset * (1.0 - root.dialog-animation-progress);
+        width: LayoutMetrics.confirm-dialog-width;
+        height: LayoutMetrics.confirm-dialog-height;
+        opacity: root.dialog-animation-progress;
+        background: white;
+        border-radius: 6px;
+        border-width: 1px;
+        border-color: #dbe1ea;
+
+        VerticalLayout {
+            padding: 18px;
+            spacing: 10px;
+            Text { text: root.confirm_title; color: #141b25; font-size: 21px; font-weight: 800; }
+            Text { text: root.confirm_detail; color: #141b25; font-size: 14px; wrap: word-wrap; }
+            Text { text: root.confirm_hint; color: #5e6876; font-size: 12px; wrap: word-wrap; }
+            Rectangle { height: 1px; background: #dbe1ea; }
+            HorizontalLayout {
+                alignment: end;
+                spacing: 8px;
+                ActionButton { label: "取消"; width: 76px; clicked => { root.close_dialog(); } }
+                ActionButton {
+                    label: root.dialog_kind == "delete" ? "确定删除" : "确认回滚";
+                    tone: root.dialog_kind == "delete" ? "danger" : "primary";
+                    width: 96px;
+                    clicked => {
+                        if root.dialog_kind == "delete" {
+                            root.confirm_delete();
+                        } else {
+                            root.confirm_rollback();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
