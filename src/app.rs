@@ -435,6 +435,7 @@ fn install_callbacks(ui: &MainWindow, state: Arc<Mutex<AppState>>) {
                 if let Some(history) = state.history.as_mut() {
                     history.loading = true;
                     history.error = None;
+                    history.success = None;
                 }
                 project
             };
@@ -535,7 +536,10 @@ fn install_callbacks(ui: &MainWindow, state: Arc<Mutex<AppState>>) {
             if let Some(ui) = weak.upgrade() {
                 {
                     let mut state = state.lock().expect("state lock poisoned");
-                    state.notice = None;
+                    let notice = state.notice.take();
+                    if let Some(notice) = notice.as_deref() {
+                        clear_deploy_result(&mut state, notice);
+                    }
                 }
                 render(&ui, &state);
             }
@@ -549,11 +553,56 @@ fn install_callbacks(ui: &MainWindow, state: Arc<Mutex<AppState>>) {
             if let Some(ui) = weak.upgrade() {
                 {
                     let mut state = state.lock().expect("state lock poisoned");
-                    state.error = None;
+                    let error = state.error.take();
+                    if let Some(error) = error.as_deref() {
+                        clear_deploy_result(&mut state, error);
+                    }
                 }
                 render(&ui, &state);
             }
         });
+    }
+
+    {
+        let weak = weak.clone();
+        let state = state.clone();
+        ui.on_dismiss_history_success(move || {
+            if let Some(ui) = weak.upgrade() {
+                {
+                    let mut state = state.lock().expect("state lock poisoned");
+                    if let Some(history) = state.history.as_mut() {
+                        history.success = None;
+                    }
+                }
+                render(&ui, &state);
+            }
+        });
+    }
+
+    {
+        let weak = weak.clone();
+        let state = state.clone();
+        ui.on_dismiss_history_error(move || {
+            if let Some(ui) = weak.upgrade() {
+                {
+                    let mut state = state.lock().expect("state lock poisoned");
+                    if let Some(history) = state.history.as_mut() {
+                        history.error = None;
+                    }
+                }
+                render(&ui, &state);
+            }
+        });
+    }
+}
+
+fn clear_deploy_result(state: &mut AppState, message: &str) {
+    for runtime in state.runtime.values_mut() {
+        if matches!(&runtime.deploy, DeployState::Success(success) if success == message)
+            || matches!(&runtime.deploy, DeployState::Error(error) if error == message)
+        {
+            runtime.deploy = DeployState::Idle;
+        }
     }
 }
 
@@ -928,14 +977,6 @@ fn render(ui: &MainWindow, state: &Arc<Mutex<AppState>>) {
     ui.set_dialog_kind(state.dialog_kind.clone().into());
     ui.set_notice_message(option_string(&state.notice));
     ui.set_error_message(option_string(&state.error));
-    ui.set_app_dir(
-        state
-            .storage
-            .as_ref()
-            .map(|storage| storage.app_dir().display().to_string())
-            .unwrap_or_default()
-            .into(),
-    );
 
     if state.form_is_new {
         ui.set_form_title("新建项目".into());

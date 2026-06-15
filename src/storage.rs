@@ -15,10 +15,6 @@ impl Storage {
         Ok(Self { app_dir })
     }
 
-    pub fn app_dir(&self) -> &PathBuf {
-        &self.app_dir
-    }
-
     pub fn projects_path(&self) -> PathBuf {
         self.app_dir.join("projects.json")
     }

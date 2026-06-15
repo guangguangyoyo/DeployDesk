@@ -9,11 +9,11 @@ RequestExecutionLevel user
 !endif
 
 !ifndef PRODUCT_VERSION
-!define PRODUCT_VERSION "0.6.0"
+!define PRODUCT_VERSION "0.6.1"
 !endif
 
 !ifndef PRODUCT_VERSION4
-!define PRODUCT_VERSION4 "0.6.0.0"
+!define PRODUCT_VERSION4 "0.6.1.0"
 !endif
 
 !ifndef APP_EXE

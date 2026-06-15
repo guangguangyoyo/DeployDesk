@@ -8,18 +8,20 @@ use ssh2::Session;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::net::TcpStream;
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
 use std::path::Path;
 use std::process::Command;
+use std::thread;
+use std::time::Duration;
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+const SSH_CONNECT_RETRY_COUNT: usize = 3;
+const SSH_CONNECT_RETRY_DELAY_MS: u64 = 800;
 
 fn create_session(project: &Project) -> Result<Session, String> {
-    let tcp = TcpStream::connect(format!("{}:{}", project.remote_host, project.remote_port))
-        .map_err(|e| format!("TCP 连接失败: {}", e))?;
-
-    let mut session = Session::new().map_err(|e| format!("创建 SSH 会话失败: {}", e))?;
-    session.set_tcp_stream(tcp);
-    session
-        .handshake()
-        .map_err(|e| format!("SSH 握手失败: {}", e))?;
+    let session = create_connected_session(project)?;
 
     if project.auth_method == AUTH_METHOD_PASSWORD {
         session
@@ -39,6 +41,40 @@ fn create_session(project: &Project) -> Result<Session, String> {
     if !session.authenticated() {
         return Err("认证失败".to_string());
     }
+
+    Ok(session)
+}
+
+fn create_connected_session(project: &Project) -> Result<Session, String> {
+    let address = format!("{}:{}", project.remote_host, project.remote_port);
+    let mut last_error = String::new();
+
+    for retry_index in 0..=SSH_CONNECT_RETRY_COUNT {
+        match connect_ssh_once(&address) {
+            Ok(session) => return Ok(session),
+            Err(error) => {
+                last_error = error;
+                if retry_index < SSH_CONNECT_RETRY_COUNT {
+                    thread::sleep(Duration::from_millis(SSH_CONNECT_RETRY_DELAY_MS));
+                }
+            }
+        }
+    }
+
+    Err(format!(
+        "{}（已自动重试 {} 次）",
+        last_error, SSH_CONNECT_RETRY_COUNT
+    ))
+}
+
+fn connect_ssh_once(address: &str) -> Result<Session, String> {
+    let tcp = TcpStream::connect(address).map_err(|e| format!("TCP 连接失败: {}", e))?;
+
+    let mut session = Session::new().map_err(|e| format!("创建 SSH 会话失败: {}", e))?;
+    session.set_tcp_stream(tcp);
+    session
+        .handshake()
+        .map_err(|e| format!("SSH 握手失败: {}", e))?;
 
     Ok(session)
 }
@@ -224,10 +260,16 @@ fn run_build_command(project: &Project) -> Result<(), String> {
         ("sh", "-c")
     };
 
-    let output = Command::new(shell)
+    let mut command = Command::new(shell);
+    command
         .arg(arg)
         .arg(&project.build_command)
-        .current_dir(&project.local_path)
+        .current_dir(&project.local_path);
+
+    #[cfg(target_os = "windows")]
+    command.creation_flags(CREATE_NO_WINDOW);
+
+    let output = command
         .output()
         .map_err(|e| format!("执行构建命令失败: {}", e))?;
 

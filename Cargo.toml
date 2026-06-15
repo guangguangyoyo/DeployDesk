@@ -1,6 +1,6 @@
 [package]
 name = "deploydesk"
-version = "0.6.0"
+version = "0.6.1"
 description = "DeployDesk is a pure Rust desktop app for building, publishing, and rolling back web frontend releases over SSH/SFTP."
 authors = ["DeployDesk contributors"]
 license = "MIT"
