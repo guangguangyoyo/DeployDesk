@@ -48,9 +48,13 @@ cargo run
 
 # 构建发布二进制
 cargo build --release
+
+# 构建 Windows NSIS 安装包
+powershell -ExecutionPolicy Bypass -File scripts/build-nsis.ps1
 ```
 
 构建产物位于 `target/release/`。
+NSIS 安装包产物位于 `dist/DeployDesk-Setup-<version>.exe`，需要先安装 NSIS 并确保 `makensis.exe` 在 PATH 中，或位于默认安装目录。
 
 ## 项目结构
 
