@@ -35,5 +35,6 @@ Old release cleanup only considers directory names matching the timestamp format
 - Remove real server addresses, usernames, passwords, private keys, and customer
   release notes.
 - Keep local logs ignored.
-- Do not publish packaged installers unless they are intentional release assets.
+- Keep `target/` and `dist/` ignored; publish packaged installers only as
+  intentional release assets.
 - Review screenshots before attaching them to issues or documentation.
