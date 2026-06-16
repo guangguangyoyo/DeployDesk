@@ -14,11 +14,14 @@ See [docs/index.md](docs/index.md) for the full documentation map.
 - Local builds: run a custom build command such as `npm run build`, `pnpm build`, or any shell command before publishing.
 - Direct uploads: skip the build step and upload an existing static asset directory.
 - SSH/SFTP deployment: connect with password authentication or a private key path and upload artifacts over SFTP.
+- Preflight validation: check the local project path, build script, output directory, and remote symlink conflict before publishing.
 - Symlink-based publishing: create timestamped release directories and update a configurable symlink.
 - Release notes: write optional publish notes to remote `RELEASE_NOTE.txt` files.
 - Release history: list remote releases, show the current release, and display notes.
 - One-click rollback: point the remote symlink back to a selected historical release.
 - Operation logs: keep the latest 100 publish and rollback records locally.
+- Configuration migration: export and import project configuration with an operator-entered package password.
+- Credential protection: password-auth projects store server passwords protected in the local configuration file.
 - Windows installer: build an offline NSIS installer with desktop, start menu, and uninstall entries.
 
 ## Tech Stack
@@ -88,7 +91,7 @@ Main documents:
 - [docs/deployment-workflow.md](docs/deployment-workflow.md): build, upload, release, cleanup, and rollback flow.
 - [docs/development.md](docs/development.md): development commands, project structure, and validation notes.
 - [docs/windows-installer.md](docs/windows-installer.md): NSIS installer build and install behavior.
-- [docs/security-notes.md](docs/security-notes.md): credentials, remote commands, and public repository checklist.
+- [docs/security-notes.md](docs/security-notes.md): credentials, configuration exports, remote commands, and public repository checklist.
 
 ## Deployment Model
 
@@ -120,7 +123,7 @@ This keeps compatibility with the previous Tauri app identifier:
 - `projects.json`: project configuration.
 - `logs.json`: latest 100 operation records.
 
-The current `password_or_key` field may contain an SSH password or a private key path. Do not publish real server addresses, usernames, passwords, private keys, screenshots, or logs that expose sensitive infrastructure details.
+Password-auth projects store server passwords protected locally; key-auth projects store the private key path. Project configuration bundles exported from the settings page are also sensitive because they contain package-password-protected passwords or private key content. Do not publish real server addresses, usernames, passwords, private keys, exported configuration bundles, screenshots, logs, or customer release notes that expose sensitive infrastructure details.
 
 See [docs/security-notes.md](docs/security-notes.md) for more information.
 
@@ -129,7 +132,9 @@ See [docs/security-notes.md](docs/security-notes.md) for more information.
 Issues and pull requests are welcome. Before submitting changes, run at least:
 
 ```bash
+cargo fmt -- --check
 cargo check
+cargo test
 ```
 
 On Windows, if a running `deploydesk.exe` locks the default `target/` directory, see [docs/development.md](docs/development.md) for validation with a separate target directory.

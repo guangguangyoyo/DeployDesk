@@ -14,11 +14,14 @@
 - 本地构建：发布前可自动执行自定义构建命令，例如 `npm run build`、`pnpm build` 或任意 shell 命令。
 - 直接上传：也可跳过构建，直接上传已有静态文件目录。
 - SSH/SFTP 部署：支持密码认证和私钥路径认证，通过 SFTP 上传构建产物。
+- 发布前校验：提前检查本地目录、构建脚本、产物目录和远端软链接占用问题。
 - 软链接发布：按时间戳创建 release 目录，并更新可配置软链接。
 - 发布备注：每次发布可保存备注到远端 `RELEASE_NOTE.txt`。
 - 历史版本：读取远端 release 列表，显示当前版本和发布备注。
 - 一键回滚：将远端软链接切换到指定历史版本。
 - 操作日志：本地保存最近 100 条发布和回滚记录。
+- 配置迁移：支持项目配置导出和导入，配置包使用操作员输入的密码保护。
+- 凭据保护：密码认证项目会在本地配置文件中受保护地保存服务器密码。
 - Windows 安装包：可通过 NSIS 生成离线安装包，安装后创建桌面、开始菜单和卸载入口。
 
 ## 技术栈
@@ -88,7 +91,7 @@ NSIS 安装包产物位于 `dist/DeployDesk-Setup-<version>.exe`，该目录已�
 - [docs/deployment-workflow.md](docs/deployment-workflow.md)：构建、上传、发布、清理和回滚流程。
 - [docs/development.md](docs/development.md)：开发命令、项目结构和验证说明。
 - [docs/windows-installer.md](docs/windows-installer.md)：NSIS 安装包构建和安装行为。
-- [docs/security-notes.md](docs/security-notes.md)：凭据、远程命令和公开仓库检查项。
+- [docs/security-notes.md](docs/security-notes.md)：凭据、配置导出、远程命令和公开仓库检查项。
 
 ## 部署模型
 
@@ -120,7 +123,7 @@ Nginx 或其他 Web 服务只需要指向 `current` 这样的软链接目录。�
 - `projects.json`：项目配置。
 - `logs.json`：最近 100 条操作日志。
 
-当前版本的 `password_or_key` 字段可能保存 SSH 密码或私钥路径。公开仓库、issue、截图和日志中不要包含真实服务器地址、账号、密码或私钥信息。
+密码认证项目会在本地受保护地保存服务器密码；私钥认证项目保存私钥路径。设置页导出的项目配置包也属于敏感文件，其中包含受配置包密码保护的密码或私钥内容。公开仓库、issue、截图和日志中不要包含真实服务器地址、账号、密码、私钥、导出的配置包或客户发布备注。
 
 更多说明见 [docs/security-notes.md](docs/security-notes.md)。
 
@@ -129,7 +132,9 @@ Nginx 或其他 Web 服务只需要指向 `current` 这样的软链接目录。�
 欢迎提交 issue 和 pull request。提交前请至少运行：
 
 ```bash
+cargo fmt -- --check
 cargo check
+cargo test
 ```
 
 Windows 下如遇到正在运行的 `deploydesk.exe` 锁住默认 `target/` 目录，可参考 [docs/development.md](docs/development.md) 使用独立 target 目录验证。

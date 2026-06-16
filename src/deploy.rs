@@ -182,19 +182,32 @@ fn run_deployment(project: Project, remark: String) -> Result<String, String> {
         ));
     }
 
+    let local_path = validate_local_project_path(&project)?;
+
     if project.uses_build_step() {
-        run_build_command(&project)?;
+        validate_build_command(&project, &local_path)?;
+        run_build_command(&project, &local_path)?;
     }
 
-    let dist_path = Path::new(&project.local_path).join(&project.build_output_dir);
+    let output_dir = project.build_output_dir.trim();
+    if output_dir.is_empty() {
+        return Err("构建产物目录不能为空".to_string());
+    }
+
+    let dist_path = local_path.join(output_dir);
     if !dist_path.exists() {
         return Err(format!("构建产物目录不存在: {}", dist_path.display()));
+    }
+    if !dist_path.is_dir() {
+        return Err(format!("构建产物路径不是目录: {}", dist_path.display()));
     }
 
     let tar_gz_path = std::env::temp_dir().join(format!("deploy_{}.tar.gz", project.id));
     build_archive(&dist_path, &tar_gz_path)?;
 
     let session = create_session(&project)?;
+    ensure_remote_symlink_path_available(&session, &project)?;
+
     let timestamp = Local::now().format("%Y%m%d_%H%M%S").to_string();
     let release_dir = format!("{}/releases/{}", project.remote_deploy_path, timestamp);
     let mut remote_dir_created = false;
@@ -253,7 +266,209 @@ fn run_deployment(project: Project, remark: String) -> Result<String, String> {
     }
 }
 
-fn run_build_command(project: &Project) -> Result<(), String> {
+fn validate_local_project_path(project: &Project) -> Result<&Path, String> {
+    let local_path_text = project.local_path.trim();
+    if local_path_text.is_empty() {
+        return Err("本地项目根目录不能为空".to_string());
+    }
+
+    let local_path = Path::new(local_path_text);
+    if !local_path.exists() {
+        return Err(format!("本地项目根目录不存在: {}", local_path.display()));
+    }
+    if !local_path.is_dir() {
+        return Err(format!("本地项目根路径不是目录: {}", local_path.display()));
+    }
+    Ok(local_path)
+}
+
+fn validate_build_command(project: &Project, local_path: &Path) -> Result<(), String> {
+    let build_command = project.build_command.trim();
+    if build_command.is_empty() {
+        return Err("构建命令不能为空".to_string());
+    }
+
+    if let Some(script_name) = package_manager_script_name(build_command) {
+        validate_package_script(local_path, &script_name, build_command)?;
+    }
+
+    Ok(())
+}
+
+fn validate_package_script(
+    local_path: &Path,
+    script_name: &str,
+    build_command: &str,
+) -> Result<(), String> {
+    let package_json_path = local_path.join("package.json");
+    if !package_json_path.exists() {
+        return Err(format!(
+            "本地项目根目录缺少 package.json，无法执行构建命令: {}",
+            build_command
+        ));
+    }
+
+    let content = std::fs::read_to_string(&package_json_path)
+        .map_err(|e| format!("读取 package.json 失败: {}", e))?;
+    let package_json: serde_json::Value =
+        serde_json::from_str(&content).map_err(|e| format!("解析 package.json 失败: {}", e))?;
+    let has_script = package_json
+        .get("scripts")
+        .and_then(|scripts| scripts.as_object())
+        .is_some_and(|scripts| scripts.contains_key(script_name));
+
+    if !has_script {
+        return Err(format!(
+            "本地项目根目录中没有构建命令 \"{}\"，请检查 package.json scripts 或修改构建命令: {}",
+            script_name, build_command
+        ));
+    }
+
+    Ok(())
+}
+
+fn package_manager_script_name(command: &str) -> Option<String> {
+    let words = split_command_words(command);
+    let tool = command_tool_name(words.first()?)?;
+    let second = words.get(1)?.as_str();
+
+    match tool.as_str() {
+        "npm" => {
+            if matches!(second, "run" | "run-script") {
+                script_word(&words, 2)
+            } else {
+                None
+            }
+        }
+        "pnpm" => {
+            if second == "run" {
+                script_word(&words, 2)
+            } else if is_direct_package_script(second, &PNPM_COMMANDS) {
+                Some(second.to_string())
+            } else {
+                None
+            }
+        }
+        "yarn" => {
+            if second == "run" {
+                script_word(&words, 2)
+            } else if is_direct_package_script(second, &YARN_COMMANDS) {
+                Some(second.to_string())
+            } else {
+                None
+            }
+        }
+        "bun" => {
+            if second == "run" {
+                script_word(&words, 2)
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+fn command_tool_name(command_word: &str) -> Option<String> {
+    Path::new(command_word)
+        .file_stem()
+        .map(|name| name.to_string_lossy().to_ascii_lowercase())
+}
+
+fn script_word(words: &[String], index: usize) -> Option<String> {
+    words
+        .get(index)
+        .filter(|word| !word.starts_with('-'))
+        .map(|word| word.to_string())
+}
+
+fn is_direct_package_script(command: &str, builtins: &[&str]) -> bool {
+    !command.starts_with('-') && !builtins.contains(&command)
+}
+
+fn split_command_words(command: &str) -> Vec<String> {
+    let mut words = Vec::new();
+    let mut current = String::new();
+    let mut quote = None;
+
+    for ch in command.chars() {
+        match quote {
+            Some(quote_ch) if ch == quote_ch => {
+                quote = None;
+            }
+            Some(_) => current.push(ch),
+            None if ch == '"' || ch == '\'' => {
+                quote = Some(ch);
+            }
+            None if ch.is_whitespace() => {
+                if !current.is_empty() {
+                    words.push(std::mem::take(&mut current));
+                }
+            }
+            None => current.push(ch),
+        }
+    }
+
+    if !current.is_empty() {
+        words.push(current);
+    }
+
+    words
+}
+
+const PNPM_COMMANDS: [&str; 23] = [
+    "add",
+    "approve-builds",
+    "audit",
+    "config",
+    "create",
+    "dedupe",
+    "deploy",
+    "exec",
+    "fetch",
+    "help",
+    "import",
+    "init",
+    "install",
+    "licenses",
+    "link",
+    "list",
+    "outdated",
+    "patch",
+    "prune",
+    "publish",
+    "rebuild",
+    "remove",
+    "update",
+];
+
+const YARN_COMMANDS: [&str; 23] = [
+    "add",
+    "bin",
+    "cache",
+    "config",
+    "constraints",
+    "dedupe",
+    "dlx",
+    "exec",
+    "explain",
+    "help",
+    "import",
+    "info",
+    "init",
+    "install",
+    "link",
+    "node",
+    "npm",
+    "pack",
+    "patch",
+    "plugin",
+    "remove",
+    "set",
+    "up",
+];
+
+fn run_build_command(project: &Project, local_path: &Path) -> Result<(), String> {
     let (shell, arg) = if cfg!(target_os = "windows") {
         ("cmd", "/C")
     } else {
@@ -263,8 +478,8 @@ fn run_build_command(project: &Project) -> Result<(), String> {
     let mut command = Command::new(shell);
     command
         .arg(arg)
-        .arg(&project.build_command)
-        .current_dir(&project.local_path);
+        .arg(project.build_command.trim())
+        .current_dir(local_path);
 
     #[cfg(target_os = "windows")]
     command.creation_flags(CREATE_NO_WINDOW);
@@ -274,10 +489,16 @@ fn run_build_command(project: &Project) -> Result<(), String> {
         .map_err(|e| format!("执行构建命令失败: {}", e))?;
 
     if !output.status.success() {
-        return Err(format!(
-            "构建失败: {}",
-            String::from_utf8_lossy(&output.stderr)
-        ));
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let details = if !stderr.trim().is_empty() {
+            stderr.trim()
+        } else if !stdout.trim().is_empty() {
+            stdout.trim()
+        } else {
+            "构建命令返回非零退出码"
+        };
+        return Err(format!("构建失败: {}", details));
     }
 
     Ok(())
@@ -348,6 +569,34 @@ fn cleanup_old_releases(session: &Session, project: &Project) -> Result<(), Stri
             let delete_path = format!("{}/{}", releases_path, release);
             let _ = exec_remote(session, &format!("rm -rf {}", quote_path(&delete_path)));
         }
+    }
+
+    Ok(())
+}
+
+fn ensure_remote_symlink_path_available(
+    session: &Session,
+    project: &Project,
+) -> Result<(), String> {
+    let symlink_path = format!(
+        "{}/{}",
+        project.remote_deploy_path,
+        project.effective_symlink_name()
+    );
+    let symlink_path_q = quote_path(&symlink_path);
+    let stdout = exec_remote(
+        session,
+        &format!(
+            "if [ -e {path} ] && [ ! -L {path} ] && [ -d {path} ]; then printf directory; fi",
+            path = symlink_path_q
+        ),
+    )?;
+
+    if stdout.trim() == "directory" {
+        return Err(format!(
+            "远程服务器上已存在与软链接名称相同的目录: {} - 请删除或重命名该目录，或修改项目的软链接名称后再发布",
+            symlink_path
+        ));
     }
 
     Ok(())
@@ -449,6 +698,7 @@ fn rollback(project: Project, release: String) -> Result<String, String> {
         project.effective_symlink_name()
     );
     let target_dir = format!("{}/releases/{}", project.remote_deploy_path, release);
+    ensure_remote_symlink_path_available(&session, &project)?;
 
     exec_remote(
         &session,
@@ -460,4 +710,96 @@ fn rollback(project: Project, release: String) -> Result<String, String> {
     )?;
 
     Ok(format!("回滚成功: {}", release))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+    use uuid::Uuid;
+
+    struct TestDir {
+        path: PathBuf,
+    }
+
+    impl TestDir {
+        fn new() -> Self {
+            let path = std::env::temp_dir().join(format!("deploydesk-test-{}", Uuid::new_v4()));
+            fs::create_dir_all(&path).unwrap();
+            Self { path }
+        }
+    }
+
+    impl Drop for TestDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.path);
+        }
+    }
+
+    #[test]
+    fn detects_package_manager_script_commands() {
+        assert_eq!(
+            package_manager_script_name("npm run build").as_deref(),
+            Some("build")
+        );
+        assert_eq!(
+            package_manager_script_name("pnpm build --filter app").as_deref(),
+            Some("build")
+        );
+        assert_eq!(
+            package_manager_script_name("yarn \"build:web\"").as_deref(),
+            Some("build:web")
+        );
+        assert_eq!(package_manager_script_name("cargo build"), None);
+    }
+
+    #[test]
+    fn rejects_missing_local_project_directory() {
+        let mut project = Project::blank();
+        project.local_path = std::env::temp_dir()
+            .join(format!("deploydesk-missing-{}", Uuid::new_v4()))
+            .display()
+            .to_string();
+
+        let error = validate_local_project_path(&project).unwrap_err();
+        assert!(error.contains("本地项目根目录不存在"));
+    }
+
+    #[test]
+    fn rejects_empty_output_directory_before_remote_connect() {
+        let dir = TestDir::new();
+        let mut project = Project::blank();
+        project.local_path = dir.path.display().to_string();
+        project.deploy_mode = crate::models::DEPLOY_MODE_UPLOAD.to_string();
+        project.build_output_dir = " ".to_string();
+
+        let error = run_deployment(project, String::new()).unwrap_err();
+        assert!(error.contains("构建产物目录不能为空"));
+    }
+
+    #[test]
+    fn rejects_missing_package_script() {
+        let dir = TestDir::new();
+        fs::write(
+            dir.path.join("package.json"),
+            r#"{"scripts":{"dev":"vite --host 0.0.0.0"}}"#,
+        )
+        .unwrap();
+
+        let error = validate_package_script(&dir.path, "build", "npm run build").unwrap_err();
+        assert!(error.contains("本地项目根目录中没有构建命令"));
+    }
+
+    #[test]
+    fn accepts_existing_package_script() {
+        let dir = TestDir::new();
+        fs::write(
+            dir.path.join("package.json"),
+            r#"{"scripts":{"build":"vite build"}}"#,
+        )
+        .unwrap();
+
+        assert!(validate_package_script(&dir.path, "build", "npm run build").is_ok());
+    }
 }

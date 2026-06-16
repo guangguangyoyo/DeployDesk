@@ -47,11 +47,13 @@ The default install directory is:
 %LOCALAPPDATA%\Programs\DeployDesk
 ```
 
-Uninstall removes installed program files and shortcuts. It does not remove application data under:
+Uninstall removes installed program files, shortcuts, registry entries, and application data under:
 
 ```text
 %APPDATA%\com.deploydesk.app
 ```
+
+Application data includes saved project configuration, local operation logs, and imported private-key copies.
 
 ## Offline Installation
 

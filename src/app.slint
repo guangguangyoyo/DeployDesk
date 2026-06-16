@@ -18,6 +18,12 @@ export struct ProjectRow {
     deploy_running: bool,
 }
 
+export struct ProjectGridRow {
+    left: ProjectRow,
+    right: ProjectRow,
+    has_right: bool,
+}
+
 export struct LogRow {
     project_name: string,
     action: string,
@@ -62,6 +68,8 @@ global LayoutMetrics {
     out property <length> deploy-dialog-height: 360px;
     out property <length> confirm-dialog-width: 540px;
     out property <length> confirm-dialog-height: 252px;
+    out property <length> config-password-dialog-width: 540px;
+    out property <length> config-password-dialog-height: 306px;
     out property <length> release-name-column-width: 188px;
     out property <length> release-status-column-width: 82px;
     out property <length> release-action-column-width: 72px;
@@ -81,7 +89,7 @@ component ActionButton inherits Rectangle {
     width: 84px;
     vertical-stretch: 0;
     horizontal-stretch: 0;
-    border-radius: 4px;
+    border-radius: 3px;
     border-width: 1px;
     background: root.button-background;
     border-color: root.button-border-color;
@@ -118,7 +126,7 @@ component NavButton inherits Rectangle {
     width: 196px;
     height: 40px;
     vertical-stretch: 0;
-    border-radius: 4px;
+    border-radius: 3px;
     border-width: 1px;
     background: root.selected ? #225ad2 : #162133;
     border-color: root.selected ? #689dff : #273448;
@@ -157,7 +165,7 @@ component StatusPill inherits Rectangle {
     height: 24px;
     vertical-stretch: 0;
     horizontal-stretch: 0;
-    border-radius: 6px;
+    border-radius: 4px;
     border-width: 1px;
     background: root.pill-background;
     border-color: root.pill-border-color;
@@ -194,23 +202,24 @@ component MetricTile inherits Rectangle {
     in property <string> label;
     in property <string> value;
     in property <string> caption;
+    in property <bool> compact: false;
 
     min-width: 144px;
-    height: 86px;
+    height: root.compact ? 68px : 86px;
     horizontal-stretch: 1;
     vertical-stretch: 0;
-    border-radius: 6px;
+    border-radius: 4px;
     border-width: 1px;
     border-color: #dbe1ea;
     background: white;
 
     VerticalLayout {
-        padding: 12px;
-        spacing: 3px;
+        padding: root.compact ? 8px : 12px;
+        spacing: root.compact ? 1px : 3px;
 
-        Text { text: root.label; color: #5e6876; font-size: 13px; }
-        Text { text: root.value; color: #141b25; font-size: 20px; font-weight: 800; }
-        Text { text: root.caption; color: #5e6876; font-size: 12px; overflow: elide; }
+        Text { height: root.compact ? 14px : 16px; text: root.label; color: #5e6876; font-size: root.compact ? 12px : 13px; vertical-alignment: center; }
+        Text { height: root.compact ? 22px : 24px; text: root.value; color: #141b25; font-size: root.compact ? 18px : 20px; font-weight: 800; vertical-alignment: center; }
+        Text { height: root.compact ? 14px : 16px; text: root.caption; color: #5e6876; font-size: 12px; vertical-alignment: center; overflow: elide; }
     }
 }
 
@@ -221,7 +230,7 @@ component AlertBanner inherits Rectangle {
 
     visible: root.message != "";
     height: root.message == "" ? 0px : 44px;
-    border-radius: 4px;
+    border-radius: 3px;
     border-width: 1px;
     background: root.tone == "success" ? #e2f6ed : #ffebeb;
     border-color: root.tone == "success" ? #12875b : #c83939;
@@ -252,7 +261,7 @@ component EmptyState inherits Rectangle {
     in property <string> detail;
 
     height: 170px;
-    border-radius: 6px;
+    border-radius: 4px;
     border-width: 1px;
     border-color: #dbe1ea;
     background: white;
@@ -283,7 +292,7 @@ component LoadingState inherits Rectangle {
     in property <string> message;
 
     height: 170px;
-    border-radius: 6px;
+    border-radius: 4px;
     border-width: 1px;
     border-color: #dbe1ea;
     background: white;
@@ -307,18 +316,47 @@ component DetailTile inherits Rectangle {
     in property <string> label;
     in property <string> value;
 
-    height: 38px;
+    height: 42px;
     horizontal-stretch: 1;
-    border-radius: 4px;
+    border-radius: 3px;
     border-width: 1px;
     border-color: #dbe1ea;
     background: #f7f9fc;
 
     VerticalLayout {
         padding: 5px;
-        spacing: 1px;
-        Text { text: root.label; color: #5e6876; font-size: 12px; }
-        Text { text: root.value; color: #141b25; font-size: 13px; font-family: "Consolas"; overflow: elide; }
+        spacing: 2px;
+        Text { height: 14px; text: root.label; color: #5e6876; font-size: 12px; vertical-alignment: center; }
+        Text { height: 16px; text: root.value; color: #141b25; font-size: 13px; font-family: "Consolas"; vertical-alignment: center; overflow: elide; }
+    }
+}
+
+component SettingsActionCard inherits Rectangle {
+    in property <string> title;
+    in property <string> detail;
+    in property <string> button_label;
+    in property <string> tone: "secondary";
+    callback action();
+
+    height: 96px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: #dbe1ea;
+    background: white;
+
+    HorizontalLayout {
+        padding: 14px;
+        spacing: 14px;
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: 5px;
+
+            Text { text: root.title; color: #141b25; font-size: 16px; font-weight: 800; overflow: elide; }
+            Text { text: root.detail; color: #5e6876; font-size: 13px; overflow: elide; }
+        }
+
+        ActionButton { label: root.button_label; tone: root.tone; width: 116px; clicked => { root.action(); } }
     }
 }
 
@@ -340,8 +378,8 @@ component ProjectCard inherits Rectangle {
     callback deploy(string);
     callback history(string);
 
-    height: 142px;
-    border-radius: 6px;
+    height: 164px;
+    border-radius: 4px;
     border-width: 1px;
     border-color: #dbe1ea;
     background: white;
@@ -350,25 +388,54 @@ component ProjectCard inherits Rectangle {
         padding: 10px;
         spacing: 6px;
 
-        HorizontalLayout {
-            height: 34px;
-            spacing: 8px;
+        VerticalLayout {
+            height: 54px;
+            spacing: 3px;
 
-            VerticalLayout {
-                horizontal-stretch: 1;
-                spacing: 2px;
-                Text { text: root.project_data.name; color: #141b25; font-size: 16px; font-weight: 800; overflow: elide; }
-                Text { text: root.project_data.local_path; color: #5e6876; font-size: 12px; overflow: elide; }
+            HorizontalLayout {
+                height: 32px;
+                spacing: 8px;
+
+                Text {
+                    horizontal-stretch: 1;
+                    height: 32px;
+                    text: root.project_data.name == "" ? "未命名项目" : root.project_data.name;
+                    color: #141b25;
+                    font-size: 16px;
+                    font-weight: 800;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+
+                ActionButton { label: "编辑"; width: 64px; clicked => { root.edit(root.project_data.id); } }
+                ActionButton { label: "删除"; tone: "danger"; width: 64px; clicked => { root.delete(root.project_data.id); } }
             }
 
-            ModeLabel { label: root.project_data.deploy_mode_label; }
-            ActionButton { label: "编辑"; width: 72px; clicked => { root.edit(root.project_data.id); } }
-            ActionButton { label: "删除"; tone: "danger"; width: 72px; clicked => { root.delete(root.project_data.id); } }
+            HorizontalLayout {
+                height: 18px;
+                spacing: 8px;
+
+                Text {
+                    horizontal-stretch: 1;
+                    height: 18px;
+                    text: root.project_data.local_path;
+                    color: root.project_data.connection_label == "本地目录缺失" ? #c83939 : #5e6876;
+                    font-size: 12px;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+
+                ModeLabel {
+                    width: 128px;
+                    height: 18px;
+                    label: root.project_data.deploy_mode_label;
+                }
+            }
         }
 
         HorizontalLayout {
-            height: 38px;
-            spacing: 6px;
+            height: 42px;
+            spacing: 8px;
             DetailTile { label: "服务器"; value: root.project_data.server; }
             DetailTile { label: "部署路径"; value: root.project_data.remote_path; }
             DetailTile { label: "产物目录"; value: root.project_data.output_dir; }
@@ -376,20 +443,24 @@ component ProjectCard inherits Rectangle {
         }
 
         HorizontalLayout {
-            height: 32px;
-            spacing: 6px;
+            height: 34px;
+            spacing: 8px;
             if root.project_data.deploy_running : Spinner { width: 22px; height: 22px; }
-            StatusPill { label: root.project_data.deploy_label != "" ? root.project_data.deploy_label : root.project_data.connection_label; tone: root.project_data.deploy_label != "" ? root.project_data.deploy_tone : root.project_data.connection_tone; }
-            Text {
-                horizontal-stretch: 1;
-                text: root.project_data.deploy_detail;
-                color: root.project_data.deploy_tone == "danger" ? #c83939 : #5e6876;
-                font-size: 13px;
-                overflow: elide;
+            Rectangle {
+                width: 92px;
+                height: 32px;
+                vertical-stretch: 0;
+                horizontal-stretch: 0;
+                StatusPill {
+                    y: 4px;
+                    label: root.project_data.deploy_label != "" ? root.project_data.deploy_label : root.project_data.connection_label;
+                    tone: root.project_data.deploy_label != "" ? root.project_data.deploy_tone : root.project_data.connection_tone;
+                }
             }
-            ActionButton { label: "检测连接"; width: 92px; clicked => { root.check(root.project_data.id); } }
-            ActionButton { label: "历史"; width: 68px; clicked => { root.history(root.project_data.id); } }
-            ActionButton { label: "发布"; tone: "primary"; width: 80px; enabled: !root.project_data.deploy_running; clicked => { root.deploy(root.project_data.id); } }
+            Rectangle { horizontal-stretch: 1; }
+            ActionButton { label: "检测连接"; width: 88px; clicked => { root.check(root.project_data.id); } }
+            ActionButton { label: "历史"; width: 64px; clicked => { root.history(root.project_data.id); } }
+            ActionButton { label: "发布"; tone: "primary"; width: 76px; enabled: !root.project_data.deploy_running; clicked => { root.deploy(root.project_data.id); } }
         }
     }
 }
@@ -398,7 +469,7 @@ component LogItem inherits Rectangle {
     in property <LogRow> log_data;
 
     height: 62px;
-    border-radius: 4px;
+    border-radius: 3px;
     border-width: 1px;
     border-color: #dbe1ea;
     background: white;
@@ -432,7 +503,7 @@ component ReleaseItem inherits Rectangle {
     callback rollback(string);
 
     height: 52px;
-    border-radius: 4px;
+    border-radius: 3px;
     border-width: 1px;
     border-color: #dbe1ea;
     background: white;
@@ -450,7 +521,7 @@ component ReleaseItem inherits Rectangle {
 
 component ReleaseListHeader inherits Rectangle {
     height: 30px;
-    border-radius: 4px;
+    border-radius: 3px;
     background: #f7f9fc;
 
     HorizontalLayout {
@@ -472,21 +543,33 @@ component FormInput inherits Rectangle {
     height: 38px;
     horizontal-stretch: 1;
     vertical-stretch: 0;
-    border-radius: 4px;
+    border-radius: 3px;
     border-width: 1px;
     border-color: #b8c4d6;
     background: white;
 
-    if root.secret : LineEdit {
-        x: 1px;
+    if root.secret : TextInput {
+        x: 10px;
         y: 1px;
-        width: parent.width - 2px;
+        width: parent.width - 20px;
         height: parent.height - 2px;
         text: root.value;
-        placeholder-text: root.placeholder;
         input-type: password;
         font-size: 13px;
-        edited(value) => { root.value = value; }
+        vertical-alignment: center;
+        single-line: true;
+        edited => { root.value = self.text; }
+    }
+
+    if root.secret && root.value == "" : Text {
+        x: 10px;
+        y: 1px;
+        width: parent.width - 20px;
+        height: parent.height - 2px;
+        text: root.placeholder;
+        color: #8c98a8;
+        font-size: 13px;
+        vertical-alignment: center;
     }
 
     if !root.secret : LineEdit {
@@ -512,14 +595,17 @@ export component MainWindow inherits Window {
 
     in-out property <string> active_page: "projects";
     in-out property <string> dialog_kind: "none";
-    in property <[ProjectRow]> project_rows;
+    in property <[ProjectGridRow]> project_grid_rows;
     in property <[LogRow]> log_rows;
     in property <[ReleaseRow]> release_rows;
     in property <int> release_count;
     in-out property <ProjectFormData> form_data;
     in property <string> form_title;
     in property <string> form_subtitle;
+    in property <string> form_error;
     in property <int> project_count;
+    in property <int> local_path_error_count;
+    in property <string> app_version;
     in property <int> online_count;
     in property <int> active_task_count;
     in property <int> log_count;
@@ -538,12 +624,18 @@ export component MainWindow inherits Window {
     in property <string> confirm_title;
     in property <string> confirm_detail;
     in property <string> confirm_hint;
+    in-out property <string> config_password;
+    in property <string> config_password_error;
     property <float> dialog-animation-progress: 1.0;
 
     callback select_projects();
     callback select_logs();
-    callback refresh_projects();
+    callback select_settings();
     callback refresh_logs();
+    callback export_projects();
+    callback import_projects();
+    callback confirm_export_projects(string);
+    callback confirm_import_projects(string);
     callback open_new_project();
     callback open_edit_project(string);
     callback open_delete_project(string);
@@ -561,6 +653,7 @@ export component MainWindow inherits Window {
     callback close_dialog();
     callback dismiss_notice();
     callback dismiss_error();
+    callback dismiss_form_error();
     callback dismiss_history_success();
     callback dismiss_history_error();
 
@@ -631,6 +724,11 @@ export component MainWindow inherits Window {
                     selected: root.active_page == "logs";
                     clicked => { root.select_logs(); }
                 }
+                NavButton {
+                    label: "设置";
+                    selected: root.active_page == "settings";
+                    clicked => { root.select_settings(); }
+                }
 
                 Rectangle { vertical-stretch: 1; }
 
@@ -639,7 +737,7 @@ export component MainWindow inherits Window {
                 Rectangle {
                     width: 196px;
                     height: 68px;
-                    border-radius: 6px;
+                    border-radius: 4px;
                     border-width: 1px;
                     border-color: #273448;
                     background: #172236;
@@ -661,15 +759,15 @@ export component MainWindow inherits Window {
             background: #f2f5f9;
 
             VerticalLayout {
-                padding: 24px;
-                spacing: 12px;
+                padding: 20px;
+                spacing: 10px;
 
                 if root.active_page == "projects" : VerticalLayout {
                     vertical-stretch: 1;
-                    spacing: 12px;
+                    spacing: 8px;
 
                     HorizontalLayout {
-                        height: 54px;
+                        height: 48px;
                         spacing: 12px;
 
                         VerticalLayout {
@@ -679,17 +777,16 @@ export component MainWindow inherits Window {
                             Text { text: "配置发布目标，执行构建上传，查看远程版本并回滚。"; color: #5e6876; font-size: 14px; }
                         }
 
-                        ActionButton { label: "刷新"; width: 76px; clicked => { root.refresh_projects(); } }
                         ActionButton { label: "新建项目"; tone: "primary"; width: 96px; clicked => { root.open_new_project(); } }
                     }
 
                     HorizontalLayout {
-                        height: 86px;
-                        spacing: 12px;
-                        MetricTile { label: "项目"; value: root.project_count; caption: "已配置发布目标"; }
-                        MetricTile { label: "在线"; value: root.online_count; caption: "连接检测通过"; }
-                        MetricTile { label: "运行中"; value: root.active_task_count; caption: "发布或检测任务"; }
-                        MetricTile { label: "日志"; value: root.log_count; caption: "最近操作记录"; }
+                        height: 68px;
+                        spacing: 8px;
+                        MetricTile { compact: true; label: "项目"; value: root.project_count; caption: "已配置发布目标"; }
+                        MetricTile { compact: true; label: "在线"; value: root.online_count; caption: "连接检测通过"; }
+                        MetricTile { compact: true; label: "运行中"; value: root.active_task_count; caption: "发布或检测任务"; }
+                        MetricTile { compact: true; label: "日志"; value: root.log_count; caption: "最近操作记录"; }
                     }
 
                     AlertBanner { message: root.notice_message; tone: "success"; close => { root.dismiss_notice(); } }
@@ -700,16 +797,40 @@ export component MainWindow inherits Window {
                         detail: "新建一个发布目标后，可以在这里检测连接、发布静态产物和查看历史版本。";
                     }
 
-                    if root.project_count > 0 : ListView {
+                    if root.project_count > 0 : ScrollView {
                         vertical-stretch: 1;
-                        for project in root.project_rows : ProjectCard {
-                            width: parent.width;
-                            project_data: project;
-                            edit(id) => { root.open_edit_project(id); }
-                            delete(id) => { root.open_delete_project(id); }
-                            check(id) => { root.check_connection(id); }
-                            deploy(id) => { root.open_deploy(id); }
-                            history(id) => { root.open_history(id); }
+                        VerticalLayout {
+                            width: root.width - LayoutMetrics.sidebar-width - 40px;
+                            spacing: 0px;
+
+                            for project_row in root.project_grid_rows : Rectangle {
+                                width: parent.width;
+                                height: 174px;
+
+                                ProjectCard {
+                                    x: 0px;
+                                    y: 0px;
+                                    width: (parent.width - 12px) / 2;
+                                    project_data: project_row.left;
+                                    edit(id) => { root.open_edit_project(id); }
+                                    delete(id) => { root.open_delete_project(id); }
+                                    check(id) => { root.check_connection(id); }
+                                    deploy(id) => { root.open_deploy(id); }
+                                    history(id) => { root.open_history(id); }
+                                }
+
+                                if project_row.has_right : ProjectCard {
+                                    x: (parent.width + 12px) / 2;
+                                    y: 0px;
+                                    width: (parent.width - 12px) / 2;
+                                    project_data: project_row.right;
+                                    edit(id) => { root.open_edit_project(id); }
+                                    delete(id) => { root.open_delete_project(id); }
+                                    check(id) => { root.check_connection(id); }
+                                    deploy(id) => { root.open_deploy(id); }
+                                    history(id) => { root.open_history(id); }
+                                }
+                            }
                         }
                     }
                 }
@@ -756,6 +877,52 @@ export component MainWindow inherits Window {
                         }
                     }
                 }
+
+                if root.active_page == "settings" : VerticalLayout {
+                    vertical-stretch: 1;
+                    spacing: 12px;
+
+                    HorizontalLayout {
+                        height: 54px;
+                        spacing: 12px;
+
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            spacing: 3px;
+                            Text { text: "设置"; color: #141b25; font-size: 26px; font-weight: 800; }
+                            Text { text: "项目配置备份与迁移。"; color: #5e6876; font-size: 14px; }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        height: 86px;
+                        spacing: 12px;
+                        MetricTile { label: "项目"; value: root.project_count; caption: "当前配置"; }
+                        MetricTile { label: "本地目录异常"; value: root.local_path_error_count; caption: "导入后自动检查"; }
+                        MetricTile { label: "日志"; value: root.log_count; caption: "本机记录"; }
+                        MetricTile { label: "版本"; value: root.app_version; caption: "当前应用"; }
+                    }
+
+                    AlertBanner { message: root.notice_message; tone: "success"; close => { root.dismiss_notice(); } }
+                    AlertBanner { message: root.error_message; tone: "danger"; close => { root.dismiss_error(); } }
+
+                    SettingsActionCard {
+                        title: "导出项目配置";
+                        detail: "导出全部项目配置文件。";
+                        button_label: "导出";
+                        tone: "primary";
+                        action => { root.export_projects(); }
+                    }
+
+                    SettingsActionCard {
+                        title: "导入项目配置";
+                        detail: "从配置文件覆盖当前项目。";
+                        button_label: "导入";
+                        action => { root.import_projects(); }
+                    }
+
+                    Rectangle { vertical-stretch: 1; }
+                }
             }
         }
     }
@@ -782,7 +949,7 @@ export component MainWindow inherits Window {
         height: root.height - 2 * LayoutMetrics.project-dialog-margin-y;
         opacity: root.dialog-animation-progress;
         background: white;
-        border-radius: 6px;
+        border-radius: 4px;
         border-width: 1px;
         border-color: #dbe1ea;
 
@@ -792,7 +959,7 @@ export component MainWindow inherits Window {
 
             Rectangle {
                 height: 64px;
-                border-radius: 6px;
+                border-radius: 4px;
                 border-width: 1px;
                 border-color: #d3def4;
                 background: #f7faff;
@@ -803,7 +970,7 @@ export component MainWindow inherits Window {
                     Rectangle {
                         width: 38px;
                         height: 38px;
-                        border-radius: 4px;
+                        border-radius: 3px;
                         background: #145be2;
                         Text {
                             x: 0px;
@@ -827,6 +994,8 @@ export component MainWindow inherits Window {
                 }
             }
 
+            AlertBanner { message: root.form_error; tone: "danger"; close => { root.dismiss_form_error(); } }
+
             ScrollView {
                 vertical-stretch: 1;
                 VerticalLayout {
@@ -835,7 +1004,7 @@ export component MainWindow inherits Window {
 
                     Rectangle {
                         height: 218px;
-                        border-radius: 6px;
+                        border-radius: 4px;
                         border-width: 1px;
                         border-color: #dbe1ea;
                         background: white;
@@ -858,7 +1027,7 @@ export component MainWindow inherits Window {
 
                     Rectangle {
                         height: root.form_data.deploy_mode == "build" ? 292px : 218px;
-                        border-radius: 6px;
+                        border-radius: 4px;
                         border-width: 1px;
                         border-color: #dbe1ea;
                         background: white;
@@ -883,7 +1052,7 @@ export component MainWindow inherits Window {
 
                     Rectangle {
                         height: 432px;
-                        border-radius: 6px;
+                        border-radius: 4px;
                         border-width: 1px;
                         border-color: #dbe1ea;
                         background: white;
@@ -976,7 +1145,7 @@ export component MainWindow inherits Window {
         height: LayoutMetrics.deploy-dialog-height;
         opacity: root.dialog-animation-progress;
         background: white;
-        border-radius: 6px;
+        border-radius: 4px;
         border-width: 1px;
         border-color: #dbe1ea;
 
@@ -987,7 +1156,7 @@ export component MainWindow inherits Window {
             Text { text: "确认目标项目与发布备注，任务开始后会在后台执行。"; color: #5e6876; font-size: 13px; }
             Rectangle {
                 height: 74px;
-                border-radius: 4px;
+                border-radius: 3px;
                 border-width: 1px;
                 border-color: #dbe1ea;
                 background: #f7f9fc;
@@ -1018,7 +1187,7 @@ export component MainWindow inherits Window {
         height: root.height - 2 * LayoutMetrics.history-dialog-margin;
         opacity: root.dialog-animation-progress;
         background: white;
-        border-radius: 6px;
+        border-radius: 4px;
         border-width: 1px;
         border-color: #dbe1ea;
 
@@ -1065,6 +1234,85 @@ export component MainWindow inherits Window {
         }
     }
 
+    if root.dialog_kind == "export-password" || root.dialog_kind == "import-password" : Rectangle {
+        x: LayoutMetrics.sidebar-width + (root.width - LayoutMetrics.sidebar-width - LayoutMetrics.config-password-dialog-width) / 2;
+        y: (root.height - LayoutMetrics.config-password-dialog-height) / 2 + LayoutMetrics.dialog-slide-offset * (1.0 - root.dialog-animation-progress);
+        width: LayoutMetrics.config-password-dialog-width;
+        height: LayoutMetrics.config-password-dialog-height;
+        opacity: root.dialog-animation-progress;
+        background: white;
+        border-radius: 4px;
+        border-width: 1px;
+        border-color: #dbe1ea;
+
+        VerticalLayout {
+            padding: 18px;
+            spacing: 10px;
+
+            Text {
+                text: root.dialog_kind == "export-password" ? "导出项目配置" : "导入项目配置";
+                color: #141b25;
+                font-size: 21px;
+                font-weight: 800;
+            }
+            Text {
+                text: root.dialog_kind == "export-password"
+                    ? "请输入本次导出的配置包密码，项目密码和私钥内容会使用它加密。"
+                    : "已选择配置文件，请输入导出时设置的配置包密码，导入后会解密项目密码和私钥内容。";
+                color: #5e6876;
+                font-size: 13px;
+                wrap: word-wrap;
+            }
+
+            Rectangle {
+                height: 98px;
+                border-radius: 3px;
+                border-width: 1px;
+                border-color: #dbe1ea;
+                background: #f7f9fc;
+
+                VerticalLayout {
+                    padding: 12px;
+                    spacing: 7px;
+                    FieldLabel { label: "配置包密码 *"; }
+                    FormInput {
+                        value <=> root.config_password;
+                        secret: true;
+                        placeholder: "输入配置包密码";
+                    }
+                }
+            }
+
+            if root.config_password_error != "" : Text {
+                text: root.config_password_error;
+                color: #c83939;
+                font-size: 13px;
+                wrap: word-wrap;
+            }
+
+            Rectangle { vertical-stretch: 1; }
+
+            HorizontalLayout {
+                height: 44px;
+                alignment: end;
+                spacing: 8px;
+                ActionButton { label: "取消"; width: 76px; clicked => { root.close_dialog(); } }
+                ActionButton {
+                    label: root.dialog_kind == "export-password" ? "继续导出" : "开始导入";
+                    tone: "primary";
+                    width: 96px;
+                    clicked => {
+                        if root.dialog_kind == "export-password" {
+                            root.confirm_export_projects(root.config_password);
+                        } else {
+                            root.confirm_import_projects(root.config_password);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     if root.dialog_kind == "delete" || root.dialog_kind == "rollback" : Rectangle {
         x: LayoutMetrics.sidebar-width + (root.width - LayoutMetrics.sidebar-width - LayoutMetrics.confirm-dialog-width) / 2;
         y: (root.height - LayoutMetrics.confirm-dialog-height) / 2 + LayoutMetrics.dialog-slide-offset * (1.0 - root.dialog-animation-progress);
@@ -1072,7 +1320,7 @@ export component MainWindow inherits Window {
         height: LayoutMetrics.confirm-dialog-height;
         opacity: root.dialog-animation-progress;
         background: white;
-        border-radius: 6px;
+        border-radius: 4px;
         border-width: 1px;
         border-color: #dbe1ea;
 

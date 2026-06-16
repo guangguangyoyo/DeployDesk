@@ -9,11 +9,11 @@ RequestExecutionLevel user
 !endif
 
 !ifndef PRODUCT_VERSION
-!define PRODUCT_VERSION "0.6.1"
+!define PRODUCT_VERSION "1.0.0"
 !endif
 
 !ifndef PRODUCT_VERSION4
-!define PRODUCT_VERSION4 "0.6.1.0"
+!define PRODUCT_VERSION4 "1.0.0.0"
 !endif
 
 !ifndef APP_EXE
@@ -29,6 +29,7 @@ RequestExecutionLevel user
 !define PRODUCT_WEB_SITE "https://github.com"
 !define INSTALL_REG_KEY "Software\DeployDesk"
 !define UNINSTALL_REG_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\DeployDesk"
+!define APP_CONFIG_DIR "com.deploydesk.app"
 
 Name "${PRODUCT_NAME}"
 OutFile "${OUT_DIR}\DeployDesk-Setup-${PRODUCT_VERSION}.exe"
@@ -61,6 +62,7 @@ VIAddVersionKey "LegalCopyright" "MIT License"
 !insertmacro MUI_LANGUAGE "English"
 
 Section "DeployDesk" SecMain
+  SetShellVarContext current
   SetOutPath "$INSTDIR"
 
   File "/oname=deploydesk.exe" "${APP_EXE}"
@@ -85,14 +87,13 @@ Section "DeployDesk" SecMain
 SectionEnd
 
 Section "Uninstall"
-  Delete "$DESKTOP\DeployDesk.lnk"
-  Delete "$SMPROGRAMS\DeployDesk\DeployDesk.lnk"
-  RMDir "$SMPROGRAMS\DeployDesk"
+  SetShellVarContext current
 
-  Delete "$INSTDIR\deploydesk.exe"
-  Delete "$INSTDIR\LICENSE"
-  Delete "$INSTDIR\uninstall.exe"
-  RMDir "$INSTDIR"
+  Delete "$DESKTOP\DeployDesk.lnk"
+  RMDir /r "$SMPROGRAMS\DeployDesk"
+
+  RMDir /r "$APPDATA\${APP_CONFIG_DIR}"
+  RMDir /r /REBOOTOK "$INSTDIR"
 
   DeleteRegKey HKCU "${UNINSTALL_REG_KEY}"
   DeleteRegKey HKCU "${INSTALL_REG_KEY}"

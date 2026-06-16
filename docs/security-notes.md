@@ -7,9 +7,22 @@ review matters before using it in production. The Chinese product name is 发布
 
 Project configuration is stored on the local machine under the app config
 directory. The directory name remains `com.deploydesk.app` for compatibility
-with the previous Tauri implementation. The `password_or_key` field may contain
-an SSH password or a private key path. Do not commit real configuration files or
-screenshots showing credentials.
+with the previous Tauri implementation. Password-based project credentials are
+stored in `projects.json` using local protection instead of plaintext. On
+Windows, protection is bound to the current Windows user through the system data
+protection API. The app does not read legacy project entries that still contain
+plaintext server passwords. The `password_or_key` field may still contain a
+private key path for key-based projects.
+
+Non-Windows builds should be reviewed against the target platform's secret
+storage expectations before production use. Do not commit real configuration
+files or screenshots showing credentials.
+
+Project configuration exports require an operator-entered configuration package
+password. Password-based credentials and private key file content are protected
+with that password. Treat exported configuration files and their package
+passwords as sensitive secrets, store them separately, and keep
+`deploydesk-projects*.json` out of source control.
 
 ## Remote Commands
 
@@ -34,6 +47,7 @@ Old release cleanup only considers directory names matching the timestamp format
 
 - Remove real server addresses, usernames, passwords, private keys, and customer
   release notes.
+- Remove exported project configuration bundles such as `deploydesk-projects.json`.
 - Keep local logs ignored.
 - Keep `target/` and `dist/` ignored; publish packaged installers only as
   intentional release assets.

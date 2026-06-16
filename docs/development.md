@@ -23,6 +23,12 @@ cargo run
 # Check the Rust project
 cargo check
 
+# Run unit tests
+cargo test
+
+# Check formatting
+cargo fmt -- --check
+
 # Build a release binary
 cargo build --release
 
@@ -47,5 +53,6 @@ Release builds use the Windows GUI subsystem, so double-clicking `deploydesk.exe
 - Keep generated build output under `target/`.
 - Keep local installer output under `dist/`.
 - Keep local runtime logs under `logs/`.
+- Keep exported project configuration bundles, including `deploydesk-projects.json`, out of the repository.
 - Do not commit credentials, private keys, customer release notes, generated installers, screenshots with secrets, or local machine paths.
 - Update README or `docs/` when behavior, configuration, deployment, or packaging changes.
